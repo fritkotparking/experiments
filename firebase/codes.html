@@ -1,0 +1,126 @@
+<! DOCTYPE html>
+<html>
+	<head>
+		<title>Creating Firebase codes</title>
+		<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+		<script src="http://code.createjs.com/easeljs-0.6.0.min.js"></script>
+		<script type='text/javascript' src='https://cdn.firebase.com/v0/firebase.js'></script>
+		<style>
+			html, body{font-family: Helvetica, Arial; font-size:12px;}
+			#link{display:none;}
+			#drawing-canvas{
+				width: 300px;
+				height: 300px;
+			}
+			#img-draw{
+				display: none;
+			}
+		</style>
+	</head>
+	<body>
+	<div id="code_holder"></div>
+	<canvas id="drawing-canvas" width="300" height="300"></canvas>
+	<img src="helix.jpg" id="img-draw" />
+	</body>
+	<script>
+	
+			// connection variables
+			var base = 'https://spud-firebase.firebaseIO.com/';
+			var code = makeid();
+			var codeRef = new Firebase(base + code);
+			var statusRef = null;
+			var pixelRef = null;
+			
+			// drawing variables
+			var canvas, stage, drawImg;
+			var drawingCanvas;
+			var oldPt;
+			var oldMidPt;
+			var stroke;
+			var index;
+			var bmpStroke;
+			
+			codeRef.transaction(function(result){
+				if(result == null){
+					$("#code_holder").html(code);
+					statusRef = new Firebase(base + code + "/status");
+					statusRef.on("value", function(txt){
+						if(txt.val() == "connected"){
+							$("#code_holder").html("connected");
+						}
+						init();
+					});
+					return {status:"locked", msg:""};
+				}else{
+					// reload function
+				}
+			});
+			
+			codeRef.onDisconnect().remove();
+		
+
+	        function init() {
+	
+	            canvas = document.getElementById("drawing-canvas");
+	            bmpStroke = document.getElementById("img-draw");
+	            stroke = 0.5 * 30 + 10 | 0;
+	
+	            //check to see if we are running in a browser with touch support
+	            stage = new createjs.Stage(canvas);
+	            stage.autoClear = false;
+	            stage.enableDOMEvents(true);
+	
+	            createjs.Touch.enable(stage);
+	            createjs.Ticker.setFPS(24);
+	
+	            drawingCanvas = new createjs.Shape();
+	            drawingCanvas.graphics.beginFill("#fff").drawRect(0, 0, 300, 300);
+
+	            stage.addChild(drawingCanvas);
+	            stage.update();
+
+	            pixelRef = new Firebase(base + code + "/pixelData/");
+	            pixelRef.on('child_added', drawPixel);
+	        }
+
+	        function stop() {
+	            createjs.Ticker.removeEventListener("tick", tick);
+	        }
+	        
+	        function drawPixel(snap){
+	        	console.log(snap.val().type);
+	        	switch(snap.val().type){
+	        		case "down":
+	        			oldPt = new createjs.Point(snap.val().x, snap.val().y);
+	        			oldMidPt = oldPt;
+	        			break;
+	        		case "up":
+	        			//pixelRef.remove();
+	        			break;
+	        		default:
+	        			var midPt = new createjs.Point(oldPt.x + snap.val().x>>1, oldPt.y+snap.val().y>>1);
+	        			drawingCanvas.graphics.clear().setStrokeStyle(stroke, 'round', 'round').beginBitmapStroke(bmpStroke, "no-repeat").moveTo(midPt.x, midPt.y).curveTo(oldPt.x, oldPt.y, oldMidPt.x, oldMidPt.y);
+	        			oldPt.x = snap.val().x;
+	        			oldPt.y = snap.val().y;
+	
+	        			oldMidPt.x = midPt.x;
+	        			oldMidPt.y = midPt.y;
+	
+	        			stage.update();
+	        	}
+	        }
+
+			
+			function makeid()
+			{
+				var text = "";
+				var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+				for( var i=0; i < 6; i++ )
+				text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+				return text;
+			}
+		</script>
+	</body>
+</html>
